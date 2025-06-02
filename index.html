@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<!-- saved from url=(0053)https://cdn.deepseek.com/usercontent/usercontent.html -->
+<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+   
+    <title>图片水印工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 320px; /* 调整列顺序 */
+            gap: 20px;
+        }
+
+        .settings {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            order: 2; /* 将设置面板移到右侧 */
+        }
+
+        .preview {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            order: 1; /* 将预览区域移到左侧 */
+        }
+
+        /* 其他样式保持不变... */
+    </style>
+<style>body { margin: 0; }</style></head>
+<body>
+    <h1>图片水印工具</h1>
+    <div class="container">
+        <!-- 预览区域移动到左侧 -->
+        <div class="preview">
+            <canvas id="previewCanvas" width="1080" height="2400"></canvas>
+        </div>
+
+        <!-- 设置面板移动到右侧 -->
+        <div class="settings">
+            <div class="form-group">
+                <label for="imageInput">上传图片</label>
+                <input type="file" id="imageInput" accept="image/*">
+            </div>
+
+            <div class="form-group">
+                <label>水印类型</label>
+                <select id="watermarkType">
+                    <option value="text">文字水印</option>
+                    <option value="image">图片水印</option>
+                </select>
+            </div>
+
+            <!-- 文字水印设置 -->
+            <div id="textSettings" class="watermark-type active">
+                <div class="form-group">
+                    <label for="watermarkText">水印文字</label>
+                    <input type="text" id="watermarkText" value="机密文件">
+                </div>
+
+                <div class="grid-container">
+                    <div class="form-group">
+                        <label for="fontSize">字体大小</label>
+                        <input type="number" id="fontSize" value="48" min="10" max="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="textColor">文字颜色</label>
+                        <input type="color" id="textColor" value="#cccccc">
+                    </div>
+                </div>
+
+                <div class="advanced-settings">
+                    <div class="form-group">
+                        <label>旋转角度 <span class="range-value" id="angleValue">45°</span></label>
+                        <input type="range" id="angle" min="-180" max="180" value="45">
+                    </div>
+
+                    <div class="grid-container">
+                        <div class="form-group">
+                            <label>水平间距 <span class="range-value" id="spacingXValue">150px</span></label>
+                            <input type="range" id="spacingX" min="50" max="300" value="150">
+                        </div>
+
+                        <div class="form-group">
+                            <label>垂直间距 <span class="range-value" id="spacingYValue">100px</span></label>
+                            <input type="range" id="spacingY" min="50" max="300" value="100">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 图片水印设置 -->
+            <div id="imageSettings" class="watermark-type">
+                <div class="form-group">
+                    <label for="watermarkImage">上传水印图片</label>
+                    <input type="file" id="watermarkImage" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label>缩放比例 <span class="range-value" id="scaleValue">30%</span></label>
+                    <input type="range" id="scale" min="10" max="100" value="30">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>透明度 <span class="range-value" id="opacityValue">50%</span></label>
+                <input type="range" id="opacity" min="0" max="1" step="0.1" value="0.5">
+            </div>
+
+            <button>下载图片</button>
+        </div>
+    </div>
+
+    <script>
+        // JavaScript代码保持不变...
+        const canvas = document.getElementById('previewCanvas');
+        const ctx = canvas.getContext('2d');
+        let originalImage = null;
+        let watermarkImage = null;
+
+        // 控件元素
+        const controls = {
+            imageInput: document.getElementById('imageInput'),
+            watermarkType: document.getElementById('watermarkType'),
+            watermarkText: document.getElementById('watermarkText'),
+            fontSize: document.getElementById('fontSize'),
+            textColor: document.getElementById('textColor'),
+            angle: document.getElementById('angle'),
+            spacingX: document.getElementById('spacingX'),
+            spacingY: document.getElementById('spacingY'),
+            opacity: document.getElementById('opacity'),
+            watermarkImageInput: document.getElementById('watermarkImage'),
+            scale: document.getElementById('scale')
+        };
+
+        // 初始化事件监听
+        function initEventListeners() {
+            // 通用事件
+            controls.imageInput.addEventListener('change', handleImageUpload);
+            controls.watermarkType.addEventListener('change', toggleWatermarkType);
+            controls.opacity.addEventListener('input', updateRangeValue);
+            controls.opacity.addEventListener('input', drawWatermark);
+
+            // 文字水印事件
+            controls.watermarkText.addEventListener('input', drawWatermark);
+            controls.fontSize.addEventListener('input', drawWatermark);
+            controls.textColor.addEventListener('input', drawWatermark);
+            controls.angle.addEventListener('input', updateRangeValue);
+            controls.angle.addEventListener('input', drawWatermark);
+            controls.spacingX.addEventListener('input', updateRangeValue);
+            controls.spacingX.addEventListener('input', drawWatermark);
+            controls.spacingY.addEventListener('input', updateRangeValue);
+            controls.spacingY.addEventListener('input', drawWatermark);
+
+            // 图片水印事件
+            controls.watermarkImageInput.addEventListener('change', handleWatermarkImageUpload);
+            controls.scale.addEventListener('input', updateRangeValue);
+            controls.scale.addEventListener('input', drawWatermark);
+        }
+
+        function updateRangeValue(e) {
+            const target = e.target;
+            switch(target.id) {
+                case 'angle':
+                    document.getElementById('angleValue').textContent = `${target.value}°`;
+                    break;
+                case 'spacingX':
+                    document.getElementById('spacingXValue').textContent = `${target.value}px`;
+                    break;
+                case 'spacingY':
+                    document.getElementById('spacingYValue').textContent = `${target.value}px`;
+                    break;
+                case 'opacity':
+                    document.getElementById('opacityValue').textContent = `${Math.round(target.value * 100)}%`;
+                    break;
+                case 'scale':
+                    document.getElementById('scaleValue').textContent = `${target.value}%`;
+                    break;
+            }
+        }
+
+        function toggleWatermarkType() {
+            document.querySelectorAll('.watermark-type').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.getElementById(controls.watermarkType.value === 'text' ?
+                'textSettings' : 'imageSettings').classList.add('active');
+            drawWatermark();
+        }
+
+        async function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                originalImage = await loadImage(file);
+                canvas.width = originalImage.width;
+                canvas.height = originalImage.height;
+                drawWatermark();
+            }
+        }
+
+        async function handleWatermarkImageUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                watermarkImage = await loadImage(file);
+                drawWatermark();
+            }
+        }
+
+        function loadImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function drawWatermark() {
+            if (!originalImage) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(originalImage, 0, 0);
+
+            ctx.globalAlpha = controls.opacity.value;
+
+            if (controls.watermarkType.value === 'text') {
+                drawTextWatermark();
+            } else if (watermarkImage) {
+                drawImageWatermark();
+            }
+
+            ctx.globalAlpha = 1.0;
+        }
+
+        function drawTextWatermark() {
+            ctx.save();
+            ctx.font = `${controls.fontSize.value}px Arial`;
+            ctx.fillStyle = controls.textColor.value;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const rotation = (controls.angle.value * Math.PI) / 180;
+            const stepX = parseInt(controls.spacingX.value);
+            const stepY = parseInt(controls.spacingY.value);
+
+            // 创建平铺效果
+            for (let x = -canvas.width; x < canvas.width * 2; x += stepX) {
+                for (let y = -canvas.height; y < canvas.height * 2; y += stepY) {
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate(rotation);
+                    ctx.fillText(controls.watermarkText.value, 0, 0);
+                    ctx.restore();
+                }
+            }
+            ctx.restore();
+        }
+
+        function drawImageWatermark() {
+            const scale = controls.scale.value / 100;
+            const width = watermarkImage.width * scale;
+            const height = watermarkImage.height * scale;
+
+            ctx.save();
+            // 右下角位置
+            const x = canvas.width - width - 20;
+            const y = canvas.height - height - 20;
+            ctx.drawImage(watermarkImage, x, y, width, height);
+            ctx.restore();
+        }
+
+        function downloadImage() {
+            if (!originalImage) return;
+            
+            const link = document.createElement('a');
+            link.download = `watermarked-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // 初始化
+        initEventListeners();
+        updateRangeValue({ target: controls.opacity });
+        updateRangeValue({ target: controls.scale });
+    </script>
+
+</body></html>
